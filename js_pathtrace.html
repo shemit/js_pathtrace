@@ -331,7 +331,6 @@ var curry = 0;
 
 var tick = function() {
   cam.capture();
-  currx = 
   cam.draw();
 }
 
@@ -354,12 +353,12 @@ var main = function() {
     1
   );
 
+  cam.capture();
   var canvas = document.getElementById("path_bmp");
   cam.draw(canvas);
 }
 
 main();
-window.requestAnimationFrame(tick);
 
 </script>
 </body>
