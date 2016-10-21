@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html>
+<head>
+</head>
+<body>
+<canvas id="path_bmp" width="256" height="192"></canvas>
+<script>
+var width = 256;
+var height = 192;
+var samples = 1;
+
+
+var Vector = function(x, y, z) {
+  this.x = x;
+  this.y = y;
+  this.z = z;
+
+  this.magnitude = function() {
+    return (1 / Math.sqrt(
+      this.x * this.x +
+      this.y * this.y +
+      this.z * this.z
+    ));
+  }
+
+  this.normalize = function() {
+    return new Vector(
+      this.x * this.magnitude(),
+      this.y * this.magnitude(),
+      this.z * this.magnitude()
+    );
+  }
+
+  this.add = function(vector) {
+    return new Vector(
+      this.x + vector.x,
+      this.y + vector.y,
+      this.z + vector.z
+    );
+  }
+
+  this.subtract = function(vector) {
+    return new Vector(
+      this.x - vector.x,
+      this.y - vector.y,
+      this.z - vector.z
+    );
+  }
+
+  this.scalar_multiply = function(scalar) {
+    return new Vector(
+      scalar * this.x,
+      scalar * this.y,
+      scalar * this.z
+    );
+  }
+
+  this.vector_multiply = function(vector) {
+    return new Vector(
+      this.x * vector.x,
+      this.y * vector.y,
+      this.z * vector.z
+    );
+  }
+
+  this.dot_product = function(vector) {
+    return this.x * vector.x + this.y * vector.y + this.z * vector.z;
+  }
+
+  this.cross_product = function(vector) {
+    return new Vector(
+      this.y * vector.z - this.z * vector.y,
+      this.z * vector.x - this.x * vector.z,
+      this.x * vector.y - this.y * vector.x
+    );
+  }
+}
+
+var Ray = function(origin, direction) {
+  this.origin = origin;
+  this.direction = direction;
+}
+
+var Scene = function() {
+  this.objects = [
+    new Sphere(16.5, 
+      new Vector(27, 16.5, 47), 
+      new Vector(0, 0, 0),
+      new Vector(0.75, 0.75, 0.25),
+      "DIFF"
+    ),
+    new Sphere(
+      100000,
+      new Vector(100000 + 1, 40.8, 81.6),
+      new Vector(0, 0, 0),
+      new Vector(.75, .25, .25),
+      "DIFF"
+    ),
+    new Sphere(
+      100000,
+      new Vector(-100000 + 99, 40.8, 81.6),
+      new Vector(0, 0, 0),
+      new Vector(.25, .25, .75),
+      "DIFF"
+    ),
+    new Sphere(
+      100000,
+      new Vector(50, 40.8, 100000),
+      new Vector(0, 0, 0),
+      new Vector(.75, .75, .75),
+      "DIFF"
+    ),
+    new Sphere(
+      100000,
+      new Vector(50, 40.8, -100000 + 170),
+      new Vector(0, 0, 0),
+      new Vector(0, 0, 0),
+      "DIFF"
+    ),
+    new Sphere(
+      100000,
+      new Vector(50, 100000, 81.6),
+      new Vector(0, 0, 0),
+      new Vector(.75, .75, .75),
+      "DIFF"
+    ),
+    new Sphere(
+      100000,
+      new Vector(50, -100000 + 81.6, 81.6),
+      new Vector(0, 0, 0),
+      new Vector(.75, .75, .75),
+      "DIFF"
+    ),
+  ];
+}
+
+var Camera = function(position, direction, width, height, plane_size, scene, samples) {
+  this.ray = new Ray(position, direction);
+  this.width = width;
+  this.height = height;
+  this.plane_size = plane_size;
+  this.scene = scene;
+  this.samples = samples;
+
+  // cx and cy define the near plane of the camera
+  // vector to right edge of the camera plane
+  this.cx = new Vector(width * plane_size / height, 0, 0);
+
+  // vector to the top edge of the camera plane
+  this.cy = this.cx.cross_product(this.ray.direction)
+                .normalize()
+                .scalar_multiply(plane_size);
+
+  // unit vector tangent to the plane of the camera
+  // i.e. up
+  this.cyt = this.cx.cross_product(this.ray.direction)
+                 .normalize();
+
+  this.pixels = [];
+  _this = this;
+
+  this.ct = 0;
+  for (var x = 0; x < this.width; x++) {
+    for (var y = 0; y < this.height; y++) {
+      this.pixels[this.ct] = [0, 0, 0];
+      this.ct++;
+    }
+  }
+
+  this.intersectID = function(ray) {
+    var d = 0;
+    var inf = Math.pow(10, 20);
+    var t = Math.pow(10, 20);
+    var id = -1;
+
+    for (var i = 0; i < this.scene.objects.length; i++) {
+      d = this.scene.objects[i].intersect(ray);
+      // Get the closest intersecting object
+      if (d > 0 && d < t) {
+        t = d;
+        id = i;
+      }
+    }
+    return [id, t];
+  }
+
+  this.radiance = function(ray, depth) {
+    var hit_data = this.intersectID(ray);
+    var id = hit_data[0];
+    var t = hit_data[1];
+
+    if (id == -1) {
+      return [0, 0, 0];
+    }
+    var obj = _this.scene.objects[id];
+    return [obj.color.x, obj.color.y, obj.color.z];
+  }
+
+  this.sample_pixel = function(x, y) {
+      // TODO subsampling here with ray jitter
+
+      for (var s = 0; s < this.samples; s++) {
+
+        // Get the x vector on the near plane
+        var xp = this.cx.scalar_multiply((x / this.width - 0.5));
+
+        // Get the y vector on the near plane
+        var yp = this.cy.scalar_multiply((y / this.height - 0.5));
+        
+        // Get the vector pointing to the point to fire ray through
+        // includes direction of the ray
+        var pixel_pt = xp.add(yp).add(this.ray.direction);
+
+        var cast_ray = new Ray(
+          this.ray.origin.add(
+            this.ray.direction.scalar_multiply(140)
+          ), pixel_pt.normalize()
+        );
+
+        this.pixels[y * width + x] = this.radiance(cast_ray, 0);
+      }
+
+  }
+  
+  this.capture = function() {
+    for (var y = 0; y < this.height; y++) {
+      for (var x = 0; x < this.width; x++) {
+        this.sample_pixel(x, y);
+      }
+    }
+  }
+
+  this.draw = function(canvas, x, y) {
+    var context = canvas.getContext("2d");
+    var id = context.createImageData(1, 1);
+    var d = id.data;
+
+    for (var i =0; i < this.pixels.length; i++) {
+      d[4 * i] = this.pixels[i][0] * 255;
+      d[4 * i + 1] = this.pixels[i][1] * 255;
+      d[4 * i + 2] = this.pixels[i][2] * 255;
+      d[4 * i + 3] = 255;
+
+      var x = i % width;
+      var y = Math.floor(i / width);
+      //console.log(x + ", " + y);
+      context.beginPath();
+      context.rect(x, y, 1, 1);
+
+      var r = this.pixels[i][0];
+      var g = this.pixels[i][1];
+      var b = this.pixels[i][2];
+      var a = 1;
+
+      context.fillStyle = "rgba(" + Math.floor(r > 1 ? 255 : r * 255) + ", " +
+                                    Math.floor(g > 1 ? 255 : g * 255) + ", " +
+                                    Math.floor(b > 1 ? 255 : b * 255) + ", 255)";
+
+      context.fill();
+    }
+  }
+}
+
+
+var Sphere = function(radius, position, emission, color) {
+  this.radius = radius;
+  this.position = position;
+  this.emission = emission;
+  this.color = color;
+  this.intersect = function(ray) {
+    // solve for the distance along ray to the intersection of the
+    // sphere
+    // equation for sphere: || x - c ||^2 = r^2
+    // where x is (vector) a point on the sphere
+    //       c is (vector) the center point of the sphere
+    //       r is (scalar) the radius of the sphere
+
+    // equation for the line: x = o + d * l
+    // where x is (vector) a point on the line
+    //       o is (vector) the point of origin of the ray
+    //       d is (scalar) the distance on the line
+    //       l is (vector) a unit vector denoting distance
+
+    // if we substitute x on the sphere equation w/ the equation
+    // for a line, we get
+    // || o + dl - c ||^2 = r^2
+
+    // which we can then expand and rearrange into a quadratic formula
+    // this gives us:
+    // d = - (l.dot(o - c)) +/- sqrt((l.dot(o - c))^2 - ||o - c||^2 - r^2)
+
+    // let offset = o - c, or the offset of ray origin to sphere center
+    // and we separate the discriminant from the equation as desc where we
+    // use the theorem A.dot(A) = || A ||^2, then
+    // disc = (l.dot(offset))^2 - offset.dot(offset) - r^2
+
+    var offset = this.position.subtract(ray.origin);
+    // should at least be some positive distance away from the origin along
+    // the ray
+    var eps = .0001;
+    var t = 0;
+    var b = offset.dot_product(ray.direction);
+    var discriminant = b * b - offset.dot_product(offset) + this.radius * this.radius;
+
+    // if the descriminant is less than zero, then the solution is imaginary
+    // and no intersection occurred--return 0
+    if (discriminant < 0) {
+      return 0;
+
+    // otherwise, go ahead and sqrt the descriminant and solve for the
+    // closest positive intersection
+    } else {
+      discriminant = Math.sqrt(discriminant);
+      t = b - discriminant;
+      if (t > eps) {
+        return t;
+      } else {
+        t = b + discriminant;
+        if (t > eps) {
+          return t;
+        }
+      }
+    }
+    return 0;
+  }
+}
+
+var cam = null;
+var currx = 0;
+var curry = 0;
+
+var tick = function() {
+  cam.capture();
+  currx = 
+  cam.draw();
+}
+
+var main = function() {
+  var position = new Vector(50, 52, 295.6);
+  var direction = (new Vector(0, -.042612, -1)).normalize();
+
+  // divided by 2 = .25675
+  //var plane_size = 0.5135;
+  var plane_size = 1;
+  var scene = new Scene();
+
+  cam = new Camera(
+    position,
+    direction,
+    width,
+    height,
+    plane_size,
+    scene,
+    1
+  );
+
+  var canvas = document.getElementById("path_bmp");
+  cam.draw(canvas);
+}
+
+main();
+window.requestAnimationFrame(tick);
+
+</script>
+</body>
+</html>
