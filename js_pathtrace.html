@@ -83,12 +83,31 @@ var Ray = function(origin, direction) {
 
 var Scene = function() {
   this.objects = [
+  /*
     new Sphere(16.5, 
       new Vector(27, 16.5, 47), 
       new Vector(0, 0, 0),
-      new Vector(0.75, 0.75, 0.25),
+      new Vector(.999, .999, .999),
+      "SPEC"
+    ),
+    new Sphere(
+      16.5,
+      new Vector(73, 16.5, 78),
+      new Vector(0, 0, 0),
+      new Vector(.999, .999, .999),
+      "REFR"
+    ),
+    */
+    new Sphere(
+      600,
+      new Vector(50, 681.6-.27, 81.6),
+      new Vector(12, 12, 12),
+      new Vector(0, 0, 0),
       "DIFF"
     ),
+
+
+
     new Sphere(
       100000,
       new Vector(100000 + 1, 40.8, 81.6),
@@ -157,7 +176,10 @@ var Camera = function(position, direction, width, height, plane_size, scene, sam
                  .normalize();
 
   this.pixels = [];
+  this.affected_pixels = [];
   _this = this;
+
+  this.pixel_ct = this.width * this.height;
 
   this.ct = 0;
   for (var x = 0; x < this.width; x++) {
@@ -186,70 +208,127 @@ var Camera = function(position, direction, width, height, plane_size, scene, sam
 
   this.radiance = function(ray, depth) {
     var hit_data = this.intersectID(ray);
+
+    // id of hit object
     var id = hit_data[0];
+
+    // distance from origin of ray to hit location
     var t = hit_data[1];
 
     if (id == -1) {
       return [0, 0, 0];
     }
+    // the hit object
     var obj = _this.scene.objects[id];
-    return [obj.color.x, obj.color.y, obj.color.z];
+
+    // get hit location
+    var hit_location = ray.origin.add(ray.direction.scalar_multiply(t));
+
+    // get hit normal vector
+    var normal = (hit_location.subtract(obj.position)).normalize();
+    // ensure that hit normal is only in direction opposite of ray 
+    normal = normal.dot_product(ray.direction) < 0 ? 
+             normal : normal.scalar_multiply(-1);
+
+    // sum the result in value f
+    var f = obj.color;
+
+    // get max reflectance
+    var max_reflectance = Math.max(f.x, f.y, f.z);
+
+    // Russian roulette
+    if (++depth > 30) {
+      if (Math.random() < max_reflectance) {
+        f = f.scalar_multiply(1/max_reflectance);
+      } else {
+        return [obj.emission.x, obj.emission.y, obj.emission.z];
+      }
+    }
+    
+    if (obj.type = "DIFF") {
+      // Generate ray scatter randomizers
+      var r1 = 2 * Math.PI * Math.random();
+      var r2 = Math.random();
+      var r2s = Math.sqrt(r2);
+
+      var w = normal;
+      var u = Math.abs(w.x) > .1 ? 
+              new Vector(0, 1, 0) : (new Vector(1, 0, 0));
+      u = u.cross_product(w).normalize();
+      var v = w.cross_product(u);
+
+      // calculate bounce rays
+      var c1 = u.scalar_multiply(Math.cos(r1) * r2s);
+      var c2 = v.scalar_multiply(Math.sin(r1) * r2s);
+      var c3 = w.scalar_multiply(Math.sqrt(1 - r2)).normalize();
+      var bounce_direction = ((c1.add(c2)).add(c3)).normalize();
+      //return [bounce_direction.x + obj.emission.x, bounce_direction.y + obj.emission.y, bounce_direction.z + obj.emission.z];
+      var bounce_radiance = this.radiance(
+        new Ray(hit_location, bounce_direction),
+        depth
+      );
+      bounce_radiance = new Vector(
+        bounce_radiance[0],
+        bounce_radiance[1],
+        bounce_radiance[2]
+      );
+      var curr_radiance = obj.emission.add(f.vector_multiply(bounce_radiance));
+      return [curr_radiance.x, curr_radiance.y, curr_radiance.z];
+    }
+    return [obj.emission.x, obj.emission.y, obj.emission.z];
+
+    //return [(nl.x + 1) / 2, (nl.y + 1) / 2, (nl.z + 1) /2];
+    //return [obj.color.x, obj.color.y, obj.color.z];
+  }
+
+  this.clear = function() {
+    this.affected_pixels = [];
   }
 
   this.sample_pixel = function(x, y) {
-      // TODO subsampling here with ray jitter
+    // TODO subsampling here with ray jitter
 
-      for (var s = 0; s < this.samples; s++) {
+    for (var s = 0; s < this.samples; s++) {
 
-        // Get the x vector on the near plane
-        var xp = this.cx.scalar_multiply((x / this.width - 0.5));
+      // Get the x vector on the near plane
+      var xp = this.cx.scalar_multiply((x / this.width - 0.5));
 
-        // Get the y vector on the near plane
-        var yp = this.cy.scalar_multiply((y / this.height - 0.5));
-        
-        // Get the vector pointing to the point to fire ray through
-        // includes direction of the ray
-        var pixel_pt = xp.add(yp).add(this.ray.direction);
+      // Get the y vector on the near plane
+      var yp = this.cy.scalar_multiply((y / this.height - 0.5));
+      
+      // Get the vector pointing to the point to fire ray through
+      // includes direction of the ray
+      var pixel_pt = xp.add(yp).add(this.ray.direction);
 
-        var cast_ray = new Ray(
-          this.ray.origin.add(
-            this.ray.direction.scalar_multiply(140)
-          ), pixel_pt.normalize()
-        );
-
-        this.pixels[y * width + x] = this.radiance(cast_ray, 0);
-      }
-
-  }
-  
-  this.capture = function() {
-    for (var y = 0; y < this.height; y++) {
-      for (var x = 0; x < this.width; x++) {
-        this.sample_pixel(x, y);
-      }
+      var cast_ray = new Ray(
+        this.ray.origin.add(
+          this.ray.direction.scalar_multiply(140)
+        ), pixel_pt.normalize()
+      );
+      this.pixels[(y) * width + x] = this.radiance(cast_ray, 0);
+      this.affected_pixels.push(y*width + x);
     }
+
   }
 
-  this.draw = function(canvas, x, y) {
+  this.capture = function(x, y) {
+    this.sample_pixel(x, y);
+  }
+
+  this.draw = function(canvas) {
     var context = canvas.getContext("2d");
-    var id = context.createImageData(1, 1);
-    var d = id.data;
 
-    for (var i =0; i < this.pixels.length; i++) {
-      d[4 * i] = this.pixels[i][0] * 255;
-      d[4 * i + 1] = this.pixels[i][1] * 255;
-      d[4 * i + 2] = this.pixels[i][2] * 255;
-      d[4 * i + 3] = 255;
-
-      var x = i % width;
-      var y = Math.floor(i / width);
-      //console.log(x + ", " + y);
+    for (p in this.affected_pixels) {
+      var pixel = this.affected_pixels[p];
       context.beginPath();
+
+      var x = pixel % width;
+      var y = Math.floor(pixel / width);;
       context.rect(x, y, 1, 1);
 
-      var r = this.pixels[i][0];
-      var g = this.pixels[i][1];
-      var b = this.pixels[i][2];
+      var r = this.pixels[pixel][0];
+      var g = this.pixels[pixel][1];
+      var b = this.pixels[pixel][2];
       var a = 1;
 
       context.fillStyle = "rgba(" + Math.floor(r > 1 ? 255 : r * 255) + ", " +
@@ -262,11 +341,12 @@ var Camera = function(position, direction, width, height, plane_size, scene, sam
 }
 
 
-var Sphere = function(radius, position, emission, color) {
+var Sphere = function(radius, position, emission, color, type) {
   this.radius = radius;
   this.position = position;
   this.emission = emission;
   this.color = color;
+  this.type = type;
   this.intersect = function(ray) {
     // solve for the distance along ray to the intersection of the
     // sphere
@@ -326,12 +406,35 @@ var Sphere = function(radius, position, emission, color) {
 }
 
 var cam = null;
-var currx = 0;
-var curry = 0;
+var canvas = document.getElementById("path_bmp");
+var pixel = 0;
+
+/*
+var tick = function() {
+  var x = pixel % width;
+  var y = Math.floor(pixel / width);
+  cam.capture(x, y);
+  cam.draw(canvas);
+  cam.clear();
+
+  pixel = (pixel + 1) % cam.pixel_ct;
+
+  window.requestAnimationFrame(tick);
+}
+*/
 
 var tick = function() {
-  cam.capture();
-  cam.draw();
+  for (i = 0; i < cam.height; i++) {
+    var x = pixel % width;
+    var y = Math.floor(pixel / width);
+
+    cam.capture(x, y);
+    cam.draw(canvas);
+    cam.clear();
+
+    pixel = (pixel + 1) % cam.pixel_ct;
+  }
+  window.requestAnimationFrame(tick);
 }
 
 var main = function() {
@@ -340,7 +443,7 @@ var main = function() {
 
   // divided by 2 = .25675
   //var plane_size = 0.5135;
-  var plane_size = 1;
+  var plane_size = 1.5;
   var scene = new Scene();
 
   cam = new Camera(
@@ -353,12 +456,10 @@ var main = function() {
     1
   );
 
-  cam.capture();
-  var canvas = document.getElementById("path_bmp");
-  cam.draw(canvas);
 }
 
 main();
+window.requestAnimationFrame(tick);
 
 </script>
 </body>
