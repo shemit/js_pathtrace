@@ -5,8 +5,8 @@
 <body>
 <canvas id="path_bmp" width="256" height="192"></canvas>
 <script>
-var width = 256;
-var height = 192;
+var width = 128;
+var height = 96;
 var samples = 1;
 
 
@@ -237,7 +237,7 @@ var Camera = function(position, direction, width, height, plane_size, scene, sam
     var max_reflectance = Math.max(f.x, f.y, f.z);
 
     // Russian roulette
-    if (++depth > 30) {
+    if (++depth > 5) {
       if (Math.random() < max_reflectance) {
         f = f.scalar_multiply(1/max_reflectance);
       } else {
@@ -286,27 +286,41 @@ var Camera = function(position, direction, width, height, plane_size, scene, sam
   }
 
   this.sample_pixel = function(x, y) {
-    // TODO subsampling here with ray jitter
+    for (var sy = 0; sy < 2; sy++) {
+      var i = (h - y - 1) * this.width + x;
 
-    for (var s = 0; s < this.samples; s++) {
+      for (var sx = 0; sx < 2; sx++) {
+        var r = new Vector(0, 0, 0);
 
-      // Get the x vector on the near plane
-      var xp = this.cx.scalar_multiply((x / this.width - 0.5));
+        for (var s = 0; s < this.samples; s++) {
+          // Jitter here
+          var r1 = 2 * Math.Random();
+          var dx = r1 < 1 ? 
+                   Math.sqrt(r1) - 1 : 1 - Math.sqrt(2 - r1);
 
-      // Get the y vector on the near plane
-      var yp = this.cy.scalar_multiply((y / this.height - 0.5));
-      
-      // Get the vector pointing to the point to fire ray through
-      // includes direction of the ray
-      var pixel_pt = xp.add(yp).add(this.ray.direction);
+          var r2 = 2 * Math.Random();
+          var dy = r2 < 1 ? 
+                   Math.sqrt(r2) - 1 : 1 - Math.sqrt(2 - r2);
+          
+          // Get the x vector on the near plane
+          var xp = this.cx.scalar_multiply((x / this.width - 0.5));
 
-      var cast_ray = new Ray(
-        this.ray.origin.add(
-          this.ray.direction.scalar_multiply(140)
-        ), pixel_pt.normalize()
-      );
-      this.pixels[(y) * width + x] = this.radiance(cast_ray, 0);
-      this.affected_pixels.push(y*width + x);
+          // Get the y vector on the near plane
+          var yp = this.cy.scalar_multiply((y / this.height - 0.5));
+          
+          // Get the vector pointing to the point to fire ray through
+          // includes direction of the ray
+          var pixel_pt = xp.add(yp).add(this.ray.direction);
+
+          var cast_ray = new Ray(
+            this.ray.origin.add(
+              this.ray.direction.scalar_multiply(140)
+            ), pixel_pt.normalize()
+          );
+          this.pixels[i] = this.radiance(cast_ray, 0);
+          this.affected_pixels.push(y*width + x);
+        }
+      }
     }
 
   }
