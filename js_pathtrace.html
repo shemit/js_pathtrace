@@ -14,66 +14,62 @@ var Vector = function(x, y, z) {
   this.x = x;
   this.y = y;
   this.z = z;
+}
 
-  this.magnitude = function() {
-    return (1 / Math.sqrt(
-      this.x * this.x +
-      this.y * this.y +
-      this.z * this.z
-    ));
-  }
+Vector.prototype.magnitude = function() {
+  return (Math.sqrt(
+    this.x * this.x +
+    this.y * this.y +
+    this.z * this.z
+  ));
+}
 
-  this.normalize = function() {
-    return new Vector(
-      this.x * this.magnitude(),
-      this.y * this.magnitude(),
-      this.z * this.magnitude()
-    );
-  }
+Vector.prototype.normalize = function() {
+  return this.scalar_multiply(1 / this.magnitude());
+}
 
-  this.add = function(vector) {
-    return new Vector(
-      this.x + vector.x,
-      this.y + vector.y,
-      this.z + vector.z
-    );
-  }
+Vector.prototype.add = function(vector) {
+  return new Vector(
+    this.x + vector.x,
+    this.y + vector.y,
+    this.z + vector.z
+  );
+}
 
-  this.subtract = function(vector) {
-    return new Vector(
-      this.x - vector.x,
-      this.y - vector.y,
-      this.z - vector.z
-    );
-  }
+Vector.prototype.subtract = function(vector) {
+  return new Vector(
+    this.x - vector.x,
+    this.y - vector.y,
+    this.z - vector.z
+  );
+}
 
-  this.scalar_multiply = function(scalar) {
-    return new Vector(
-      scalar * this.x,
-      scalar * this.y,
-      scalar * this.z
-    );
-  }
+Vector.prototype.scalar_multiply = function(scalar) {
+  return new Vector(
+    scalar * this.x,
+    scalar * this.y,
+    scalar * this.z
+  );
+}
 
-  this.vector_multiply = function(vector) {
-    return new Vector(
-      this.x * vector.x,
-      this.y * vector.y,
-      this.z * vector.z
-    );
-  }
+Vector.prototype.vector_multiply = function(vector) {
+  return new Vector(
+    this.x * vector.x,
+    this.y * vector.y,
+    this.z * vector.z
+  );
+}
 
-  this.dot_product = function(vector) {
-    return this.x * vector.x + this.y * vector.y + this.z * vector.z;
-  }
+Vector.prototype.dot_product = function(vector) {
+  return this.x * vector.x + this.y * vector.y + this.z * vector.z;
+}
 
-  this.cross_product = function(vector) {
-    return new Vector(
-      this.y * vector.z - this.z * vector.y,
-      this.z * vector.x - this.x * vector.z,
-      this.x * vector.y - this.y * vector.x
-    );
-  }
+Vector.prototype.cross_product = function(vector) {
+  return new Vector(
+    this.y * vector.z - this.z * vector.y,
+    this.z * vector.x - this.x * vector.z,
+    this.x * vector.y - this.y * vector.x
+  );
 }
 
 var Ray = function(origin, direction) {
@@ -84,8 +80,8 @@ var Ray = function(origin, direction) {
 var Scene = function() {
   this.objects = [
   /*
-    new Sphere(16.5, 
-      new Vector(27, 16.5, 47), 
+    new Sphere(16.5,
+      new Vector(27, 16.5, 47),
       new Vector(0, 0, 0),
       new Vector(.999, .999, .999),
       "SPEC"
@@ -225,8 +221,8 @@ var Camera = function(position, direction, width, height, plane_size, scene, sam
 
     // get hit normal vector
     var normal = (hit_location.subtract(obj.position)).normalize();
-    // ensure that hit normal is only in direction opposite of ray 
-    normal = normal.dot_product(ray.direction) < 0 ? 
+    // ensure that hit normal is only in direction opposite of ray
+    normal = normal.dot_product(ray.direction) < 0 ?
              normal : normal.scalar_multiply(-1);
 
     // sum the result in value f
@@ -243,7 +239,7 @@ var Camera = function(position, direction, width, height, plane_size, scene, sam
         return [obj.emission.x, obj.emission.y, obj.emission.z];
       }
     }
-    
+
     if (obj.type = "DIFF") {
       // Generate ray scatter randomizers
       var r1 = 2 * Math.PI * Math.random();
@@ -251,7 +247,7 @@ var Camera = function(position, direction, width, height, plane_size, scene, sam
       var r2s = Math.sqrt(r2);
 
       var w = normal;
-      var u = Math.abs(w.x) > .1 ? 
+      var u = Math.abs(w.x) > .1 ?
               new Vector(0, 1, 0) : (new Vector(1, 0, 0));
       u = u.cross_product(w).normalize();
       var v = w.cross_product(u);
@@ -275,9 +271,6 @@ var Camera = function(position, direction, width, height, plane_size, scene, sam
       return [curr_radiance.x, curr_radiance.y, curr_radiance.z];
     }
     return [obj.emission.x, obj.emission.y, obj.emission.z];
-
-    //return [(nl.x + 1) / 2, (nl.y + 1) / 2, (nl.z + 1) /2];
-    //return [obj.color.x, obj.color.y, obj.color.z];
   }
 
   this.clear = function() {
@@ -293,11 +286,11 @@ var Camera = function(position, direction, width, height, plane_size, scene, sam
         for (var s = 0; s < this.samples; s++) {
           // Jitter here
           var r1 = 2 * Math.random();
-          var dx = r1 < 1 ? 
+          var dx = r1 < 1 ?
                    Math.sqrt(r1) - 1 : 1 - Math.sqrt(2 - r1);
 
           var r2 = 2 * Math.random();
-          var dy = r2 < 1 ? 
+          var dy = r2 < 1 ?
                    Math.sqrt(r2) - 1 : 1 - Math.sqrt(2 - r2);
 
           // Get the x vector on the near plane
@@ -305,12 +298,12 @@ var Camera = function(position, direction, width, height, plane_size, scene, sam
 
           // Get the y vector on the near plane
           //var yp = this.cy.scalar_multiply((y / this.height - 0.5));
-          
+
           var rx = (((sx + 0.5 + dx) / 2 + x) / this.width - 0.5);
           var ry = (((sy + 0.5 + dy) / 2 + y) / this.height - 0.5);
           var xp = this.cx.scalar_multiply(rx);
           var yp = this.cy.scalar_multiply(ry);
-          
+
           // Get the vector pointing to the point to fire ray through
           // includes direction of the ray
           var pixel_pt = xp.add(yp).add(this.ray.direction);
@@ -320,7 +313,7 @@ var Camera = function(position, direction, width, height, plane_size, scene, sam
               this.ray.direction.scalar_multiply(140)
             ), pixel_pt.normalize()
           );
-          
+
           var rad  = this.radiance(cast_ray, 0);
           r[0] = rad[0] * (1 / this.samples);
           r[1] = rad[1] * (1 / this.samples);
@@ -341,25 +334,26 @@ var Camera = function(position, direction, width, height, plane_size, scene, sam
   this.draw = function(canvas) {
     var context = canvas.getContext("2d");
 
+    var imgData = context.getImageData(0, 0, width, height);
+    var data = imgData.data;
+
     for (p in this.affected_pixels) {
       var pixel = this.affected_pixels[p];
-      context.beginPath();
 
-      var x = pixel % width;
-      var y = Math.floor(pixel / width);;
-      context.rect(x, y, 1, 1);
+      var r = this.pixels[pixel][0];
+      var g = this.pixels[pixel][1];
+      var b = this.pixels[pixel][2];
 
-      var r = this.pixels[pixel][0] / this.passes;
-      var g = this.pixels[pixel][1] / this.passes;
-      var b = this.pixels[pixel][2] / this.passes;
+      var dataI = pixel * 4;
+      data[dataI    ] = r * 255;
+      data[dataI + 1] = g * 255;
+      data[dataI + 2] = b * 255;
+      data[dataI + 3] = 255;
+
       var a = 1;
-
-      context.fillStyle = "rgba(" + Math.floor(r > 1 ? 255 : r * 255) + ", " +
-                                    Math.floor(g > 1 ? 255 : g * 255) + ", " +
-                                    Math.floor(b > 1 ? 255 : b * 255) + ", 255)";
-
-      context.fill();
     }
+
+    context.putImageData(imgData, 0, 0);
   }
 }
 
@@ -370,98 +364,110 @@ var Sphere = function(radius, position, emission, color, type) {
   this.emission = emission;
   this.color = color;
   this.type = type;
-  this.intersect = function(ray) {
-    // solve for the distance along ray to the intersection of the
-    // sphere
-    // equation for sphere: || x - c ||^2 = r^2
-    // where x is (vector) a point on the sphere
-    //       c is (vector) the center point of the sphere
-    //       r is (scalar) the radius of the sphere
+}
 
-    // equation for the line: x = o + d * l
-    // where x is (vector) a point on the line
-    //       o is (vector) the point of origin of the ray
-    //       d is (scalar) the distance on the line
-    //       l is (vector) a unit vector denoting distance
+Sphere.prototype.intersect = function(ray) {
+  // solve for the distance along ray to the intersection of the
+  // sphere
+  // equation for sphere: || x - c ||^2 = r^2
+  // where x is (vector) a point on the sphere
+  //       c is (vector) the center point of the sphere
+  //       r is (scalar) the radius of the sphere
 
-    // if we substitute x on the sphere equation w/ the equation
-    // for a line, we get
-    // || o + dl - c ||^2 = r^2
+  // equation for the line: x = o + d * l
+  // where x is (vector) a point on the line
+  //       o is (vector) the point of origin of the ray
+  //       d is (scalar) the distance on the line
+  //       l is (vector) a unit vector denoting distance
 
-    // which we can then expand and rearrange into a quadratic formula
-    // this gives us:
-    // d = - (l.dot(o - c)) +/- sqrt((l.dot(o - c))^2 - ||o - c||^2 - r^2)
+  // if we substitute x on the sphere equation w/ the equation
+  // for a line, we get
+  // || o + dl - c ||^2 = r^2
 
-    // let offset = o - c, or the offset of ray origin to sphere center
-    // and we separate the discriminant from the equation as desc where we
-    // use the theorem A.dot(A) = || A ||^2, then
-    // disc = (l.dot(offset))^2 - offset.dot(offset) - r^2
+  // which we can then expand and rearrange into a quadratic formula
+  // this gives us:
+  // d = - (l.dot(o - c)) +/- sqrt((l.dot(o - c))^2 - ||o - c||^2 - r^2)
 
-    var offset = this.position.subtract(ray.origin);
-    // should at least be some positive distance away from the origin along
-    // the ray
-    var eps = .0001;
-    var t = 0;
-    var b = offset.dot_product(ray.direction);
-    var discriminant = b * b - offset.dot_product(offset) + this.radius * this.radius;
+  // let offset = o - c, or the offset of ray origin to sphere center
+  // and we separate the discriminant from the equation as desc where we
+  // use the theorem A.dot(A) = || A ||^2, then
+  // disc = (l.dot(offset))^2 - offset.dot(offset) - r^2
 
-    // if the descriminant is less than zero, then the solution is imaginary
-    // and no intersection occurred--return 0
-    if (discriminant < 0) {
-      return 0;
+  var offset = this.position.subtract(ray.origin);
+  // should at least be some positive distance away from the origin along
+  // the ray
+  var eps = .0001;
+  var t = 0;
+  var b = offset.dot_product(ray.direction);
+  var discriminant = b * b - offset.dot_product(offset) + this.radius * this.radius;
 
-    // otherwise, go ahead and sqrt the descriminant and solve for the
-    // closest positive intersection
+  // if the descriminant is less than zero, then the solution is imaginary
+  // and no intersection occurred--return 0
+  if (discriminant < 0) {
+    return 0;
+
+  // otherwise, go ahead and sqrt the descriminant and solve for the
+  // closest positive intersection
+  } else {
+    discriminant = Math.sqrt(discriminant);
+    t = b - discriminant;
+    if (t > eps) {
+      return t;
     } else {
-      discriminant = Math.sqrt(discriminant);
-      t = b - discriminant;
+      t = b + discriminant;
       if (t > eps) {
         return t;
-      } else {
-        t = b + discriminant;
-        if (t > eps) {
-          return t;
-        }
       }
     }
-    return 0;
   }
-}
+  return 0;
+};
 
 var cam = null;
 var canvas = document.getElementById("path_bmp");
 var pixel = 0;
 
-/*
 var tick = function() {
-  var x = pixel % width;
-  var y = Math.floor(pixel / width);
-  cam.capture(x, y);
+
+  for (var i = 0; i < 500; i++) {
+    var x = pixel % width;
+    var y = Math.floor(pixel / width);
+    cam.capture(x, y);
+    pixel = (pixel + 1) % cam.pixel_ct;
+  }
+
   cam.draw(canvas);
   cam.clear();
 
-  pixel = (pixel + 1) % cam.pixel_ct;
-
   window.requestAnimationFrame(tick);
 }
-*/
 
+/*
 var tick = function() {
-  for (i = 0; i < cam.height; i++) {
-    var x = pixel % width;
-    var y = Math.floor(pixel / width);
-    if (x == 0 && y == 0) {
-      cam.passes++;
+  if (typeof(Worker) != undefined) {
+    var worker = new Worker('js_pathjob.js');
+    worker.addEventListener('message', function(e) {
+      console.log(e.data);
+    }, false);
+    worker.postMessage('hello world');
+  } else {
+    for (i = 0; i < cam.height; i++) {
+      var x = pixel % width;
+      var y = Math.floor(pixel / width);
+      if (x == 0 && y == 0) {
+        cam.passes++;
+      }
+
+      cam.capture(x, y);
+      cam.draw(canvas);
+      cam.clear();
+
+      pixel = (pixel + 1) % cam.pixel_ct;
     }
-
-    cam.capture(x, y);
-    cam.draw(canvas);
-    cam.clear();
-
-    pixel = (pixel + 1) % cam.pixel_ct;
   }
   window.requestAnimationFrame(tick);
 }
+*/
 
 var main = function() {
   var position = new Vector(50, 52, 295.6);
